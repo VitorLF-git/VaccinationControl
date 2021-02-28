@@ -1,0 +1,89 @@
+package com.vitor.springcloudmysql.controller;
+
+import com.vitor.springcloudmysql.model.User;
+import com.vitor.springcloudmysql.model.Vaccination;
+import com.vitor.springcloudmysql.repository.UserRepository;
+import com.vitor.springcloudmysql.repository.VaccinationRepository;
+
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.List;
+
+import javax.validation.Valid;
+
+@RestController
+@RequestMapping({"/vaccinations"})
+public class VaccinationController {
+
+    private VaccinationRepository repository;
+    private UserRepository userRepository;
+
+    VaccinationController(VaccinationRepository vaccinationRepository, UserRepository userRepository) {
+        this.repository = vaccinationRepository;
+        this.userRepository = userRepository;
+
+    }
+
+    @GetMapping
+    public List<Vaccination> findAll(){
+        return repository.findAll();
+    }
+
+    @GetMapping(path = {"/{id}"})
+    public ResponseEntity<Vaccination> findById(@PathVariable long id){
+        return repository.findById(id)
+                .map(record -> ResponseEntity.ok().body(record))
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    @PostMapping
+    public ResponseEntity<Object> create(@Valid @RequestBody Vaccination vaccination, @RequestParam("email") String email){
+    	try {
+    		System.out.println(email);
+    		repository.save(vaccination);
+             return new ResponseEntity<>(
+     	            vaccination, 
+     	            HttpStatus.CREATED);
+    	} catch (DataIntegrityViolationException e) {
+    		HashMap<String,Object> response = new HashMap<String,Object>();
+            response.put("messageError", "User email or CPF already exists");
+    	    System.out.println("User email or CPF already exists");
+    	    return ResponseEntity.badRequest().body(response);
+    	}
+    }
+    
+    @PutMapping(value="/{id}")
+    public ResponseEntity<Vaccination> update(@PathVariable("id") long id,
+                                          @Valid @RequestBody Vaccination vaccination){
+      return repository.findById(id)
+          .map(record -> {
+        	  
+              record.setName(vaccination.getName());
+              record.setDate(vaccination.getDate());
+
+              Vaccination updated = repository.save(record);
+              return ResponseEntity.ok().body(updated);
+          }).orElse(ResponseEntity.notFound().build());
+    }
+    
+    @DeleteMapping(path ={"/{id}"})
+    public ResponseEntity<?> delete(@PathVariable("id") long id) {
+      return repository.findById(id)
+          .map(record -> {
+              repository.deleteById(id);
+              return ResponseEntity.ok().build();
+          }).orElse(ResponseEntity.notFound().build());
+    }
+}
